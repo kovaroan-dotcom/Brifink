@@ -1,0 +1,924 @@
+<!doctype html>
+<html lang="cs">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Brífink — denní přehled</title>
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' fill='%23f4f1ea'/%3E%3Ctext x='50' y='72' font-family='Georgia' font-size='64' font-weight='900' text-anchor='middle' fill='%23a63d2a'%3EB%3C/text%3E%3C/svg%3E" />
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;0,900;1,400&family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;1,8..60,400&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+  :root {
+    --paper: #f0ede8;
+    --paper-dark: #e4e0d8;
+    --ink: #2c2825;
+    --ink-muted: #7a7570;
+    --ink-soft: #9a9590;
+    --accent: #7a6e63;
+    --line: #c8c2b8;
+    --line-soft: #d8d2c8;
+  }
+  html, body, #root {
+    margin: 0; padding: 0;
+    min-height: 100vh;
+    background: var(--paper);
+    color: var(--ink);
+    font-family: 'Source Serif 4', Georgia, serif;
+  }
+  .display-font { font-family: 'Playfair Display', Georgia, serif; }
+  .mono-font   { font-family: 'JetBrains Mono', ui-monospace, monospace; }
+
+  .grain::before {
+    content: ""; position: fixed; inset: 0;
+    pointer-events: none; opacity: 0.035;
+    mix-blend-mode: multiply; z-index: 100;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='3'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  }
+
+  .fade-in { animation: fadeIn 0.6s ease-out both; }
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+
+  .drop-cap::first-letter {
+    font-family: 'Playfair Display', serif; font-weight: 900;
+    float: left; font-size: 4.2em; line-height: 0.85;
+    padding-right: 0.08em; padding-top: 0.08em;
+    color: var(--accent);
+  }
+
+  .rule { height: 1px; background: var(--line); }
+  .rule-double { border-top: 1px solid var(--ink); border-bottom: 1px solid var(--ink); height: 5px; }
+
+  .card-hover { transition: transform 0.25s ease, box-shadow 0.25s ease; }
+  .card-hover:hover { transform: translateY(-2px); box-shadow: 0 12px 32px -16px rgba(26, 22, 18, 0.25); }
+
+  @keyframes spin { to { transform: rotate(360deg); } }
+  @keyframes pulse { 0%, 100% { opacity: 0.5; } 50% { opacity: 1; } }
+  .pulse { animation: pulse 2s ease-in-out infinite; }
+
+  details > summary { list-style: none; cursor: pointer; }
+  details > summary::-webkit-details-marker { display: none; }
+
+  .btn-outline { border: 1px solid var(--ink); padding: 0.375rem 0.75rem; font-size: 11px; text-transform: uppercase; letter-spacing: 0.1em; font-family: 'JetBrains Mono', monospace; display: inline-flex; align-items: center; gap: 0.375rem; transition: all 0.15s ease; background: transparent; color: var(--ink); cursor: pointer; }
+  .btn-outline:hover { background: var(--ink); color: var(--paper); }
+  .btn-outline:disabled { opacity: 0.4; cursor: not-allowed; }
+  .btn-outline:disabled:hover { background: transparent; color: var(--ink); }
+
+  .btn-primary { background: var(--ink); color: var(--paper); padding: 1rem 2rem; font-family: 'JetBrains Mono', monospace; font-size: 14px; text-transform: uppercase; letter-spacing: 0.2em; transition: background 0.2s ease; border: none; cursor: pointer; }
+  .btn-primary:hover { background: var(--accent); }
+
+  .ico { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; display: inline-block; vertical-align: middle; }
+</style>
+</head>
+<body>
+<div id="root"></div>
+
+<script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+<script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+<script type="text/babel" data-presets="react">
+const { useState, useEffect } = React;
+
+const Icon = ({children, size=14, spin=false}) => (
+  <svg className="ico" style={{width:size, height:size, animation: spin ? "spin 1.1s linear infinite" : undefined}} viewBox="0 0 24 24">{children}</svg>
+);
+const IconRefresh = (p) => <Icon {...p}><path d="M3 12a9 9 0 0 1 15-6.7L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-15 6.7L3 16"/><path d="M3 21v-5h5"/></Icon>;
+const IconSettings = (p) => <Icon {...p}><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></Icon>;
+const IconX = (p) => <Icon {...p}><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></Icon>;
+const IconCheck = (p) => <Icon {...p}><polyline points="20 6 9 17 4 12"/></Icon>;
+const IconClock = (p) => <Icon {...p}><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></Icon>;
+const IconExt = (p) => <Icon {...p}><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></Icon>;
+const IconAlert = (p) => <Icon {...p}><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></Icon>;
+const IconLoader = (p) => <Icon {...p} spin><line x1="12" y1="2" x2="12" y2="6"/><line x1="12" y1="18" x2="12" y2="22"/><line x1="4.93" y1="4.93" x2="7.76" y2="7.76"/><line x1="16.24" y1="16.24" x2="19.07" y2="19.07"/><line x1="2" y1="12" x2="6" y2="12"/><line x1="18" y1="12" x2="22" y2="12"/><line x1="4.93" y1="19.07" x2="7.76" y2="16.24"/><line x1="16.24" y1="7.76" x2="19.07" y2="4.93"/></Icon>;
+const IconKey = (p) => <Icon {...p}><path d="M21 2l-2 2"/><path d="M11.39 11.61a5.5 5.5 0 1 1-7.78 7.78 5.5 5.5 0 0 1 7.78-7.78z"/><path d="M15.5 7.5l3 3L22 7l-3-3"/><path d="M15.5 7.5L19 4"/></Icon>;
+
+const DEFAULT_SOURCES_CZ = [
+  { name: "iRozhlas", url: "irozhlas.cz", enabled: true },
+  { name: "ČT24", url: "ct24.ceskatelevize.cz", enabled: true },
+  { name: "Seznam Zprávy", url: "seznamzpravy.cz", enabled: true },
+  { name: "Deník N", url: "denikn.cz", enabled: true },
+  { name: "Hospodářské noviny", url: "hn.cz", enabled: true },
+  { name: "iDNES", url: "idnes.cz", enabled: true },
+  { name: "Aktuálně.cz", url: "aktualne.cz", enabled: true },
+  { name: "Echo24", url: "echo24.cz", enabled: true },
+];
+const DEFAULT_SOURCES_WORLD = [
+  { name: "BBC", url: "bbc.com", enabled: true },
+  { name: "Reuters", url: "reuters.com", enabled: true },
+  { name: "The New York Times", url: "nytimes.com", enabled: true },
+  { name: "The Guardian", url: "theguardian.com", enabled: true },
+  { name: "Associated Press", url: "apnews.com", enabled: true },
+  { name: "Bloomberg", url: "bloomberg.com", enabled: true },
+  { name: "Washington Post", url: "washingtonpost.com", enabled: true },
+  { name: "Al Jazeera", url: "aljazeera.com", enabled: true },
+  { name: "CBS News", url: "cbsnews.com", enabled: true },
+  { name: "NBC News", url: "nbcnews.com", enabled: true },
+  { name: "Politico", url: "politico.com", enabled: true },
+  { name: "Le Monde", url: "lemonde.fr", enabled: true },
+  { name: "Der Spiegel", url: "spiegel.de", enabled: true },
+  { name: "Financial Times", url: "ft.com", enabled: true },
+];
+const DEFAULT_SOURCES_OPINION = [
+  { name: "Respekt", url: "respekt.cz", enabled: true },
+  { name: "Forbes CZ", url: "forbes.cz", enabled: true },
+  { name: "Reportér", url: "reportermagazin.cz", enabled: true },
+  { name: "CzechCrunch", url: "czechcrunch.cz", enabled: true },
+];
+const DEFAULT_SOURCES_AI = [
+  { name: "TechCrunch", url: "techcrunch.com", enabled: true },
+  { name: "The Verge", url: "theverge.com", enabled: true },
+  { name: "Wired", url: "wired.com", enabled: true },
+  { name: "MIT Technology Review", url: "technologyreview.com", enabled: true },
+  { name: "VentureBeat", url: "venturebeat.com", enabled: true },
+  { name: "Ars Technica", url: "arstechnica.com", enabled: true },
+];
+const DEFAULT_TOPICS = [
+  { id: "cz-politics", label: "Česká politika", enabled: true },
+  { id: "world-politics", label: "Zahraniční politika", enabled: true },
+  { id: "economy", label: "Ekonomika a byznys", enabled: true },
+  { id: "culture", label: "Kultura a společnost", enabled: true },
+  { id: "tech", label: "Věda a technologie", enabled: false },
+  { id: "sport", label: "Sport", enabled: false },
+];
+const CATEGORY_COLORS = {
+  "Česká politika": "var(--accent)",
+  "Zahraniční politika": "#8b5a3c",
+  "Ekonomika": "#4a6b4a",
+  "Kultura": "#7a4a6b",
+  "Technologie": "#3a5a7a",
+  "Společnost": "#6b5a3c",
+  "Sport": "#5a5a5a",
+};
+
+const BANNED_DOMAINS = ["eurozpravy.cz", "eurozpravy.eu", "blesk.cz", "denikreferendum.cz", "forum24.cz", "a2larm.cz", "konzervativni-noviny.cz"];
+
+const storage = {
+  get: (k) => { try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : null; } catch { return null; } },
+  set: (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); return true; } catch { return false; } },
+};
+
+function App() {
+  const [apiKey, setApiKey] = useState(null);
+  const [apiKeyInput, setApiKeyInput] = useState("");
+  const [data, setData] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [loadingStage, setLoadingStage] = useState("");
+  const [error, setError] = useState(null);
+  const [showSettings, setShowSettings] = useState(false);
+  const [settings, setSettings] = useState({
+    sourcesCz: DEFAULT_SOURCES_CZ,
+    sourcesWorld: DEFAULT_SOURCES_WORLD,
+    sourcesOpinion: DEFAULT_SOURCES_OPINION,
+    sourcesAi: DEFAULT_SOURCES_AI,
+    topics: DEFAULT_TOPICS,
+    summaryLength: "medium",
+  });
+  const [lastUpdated, setLastUpdated] = useState(null);
+
+  useEffect(() => {
+    const k = storage.get("brifink.apiKey"); if (k) setApiKey(k);
+    const s = storage.get("brifink.settings");
+    if (s) {
+      // Přidej nové zdroje které v uloženém nastavení ještě nejsou
+      const mergeNew = (saved, defaults) => {
+        const savedUrls = new Set(saved.map(x => x.url));
+        return [...saved, ...defaults.filter(d => !savedUrls.has(d.url))];
+      };
+      const merged = {
+        ...s,
+        sourcesCz: mergeNew(s.sourcesCz || [], DEFAULT_SOURCES_CZ),
+        sourcesWorld: mergeNew(s.sourcesWorld || [], DEFAULT_SOURCES_WORLD),
+        sourcesOpinion: mergeNew(s.sourcesOpinion || [], DEFAULT_SOURCES_OPINION),
+        sourcesAi: mergeNew(s.sourcesAi || [], DEFAULT_SOURCES_AI),
+      };
+      setSettings(merged);
+      storage.set("brifink.settings", merged);
+    }
+    const d = storage.get("brifink.latestDigest");
+    // Zahoď cache ve staré struktuře nebo bez AI sekce
+    if (d && d.data && d.data.sections && Array.isArray(d.data.sections)) {
+      const hasAi = d.data.sections.some(s => s.id === "ai");
+      if (hasAi) {
+        setData(d.data); setLastUpdated(d.timestamp);
+      } else {
+        localStorage.removeItem("brifink.latestDigest");
+      }
+    } else if (d) {
+      localStorage.removeItem("brifink.latestDigest");
+    }
+  }, []);
+
+  const saveSettings = (s) => { setSettings(s); storage.set("brifink.settings", s); };
+
+  const saveApiKey = () => {
+    const t = apiKeyInput.trim();
+    if (!t.startsWith("sk-ant-")) {
+      alert("API klíč by měl začínat 'sk-ant-'. Zkontroluj, jestli jsi ho zkopírovala celý.");
+      return;
+    }
+    storage.set("brifink.apiKey", t);
+    setApiKey(t);
+    setApiKeyInput("");
+  };
+
+  const clearApiKey = () => {
+    if (confirm("Opravdu smazat uložený API klíč?")) {
+      localStorage.removeItem("brifink.apiKey");
+      setApiKey(null);
+      setShowSettings(false);
+    }
+  };
+
+  const resetSettings = () => {
+    if (confirm("Resetovat všechny zdroje na výchozí hodnoty? Tvůj API klíč zůstane zachován.")) {
+      const fresh = {
+        sourcesCz: DEFAULT_SOURCES_CZ,
+        sourcesWorld: DEFAULT_SOURCES_WORLD,
+        sourcesOpinion: DEFAULT_SOURCES_OPINION,
+        sourcesAi: DEFAULT_SOURCES_AI,
+        topics: DEFAULT_TOPICS,
+        summaryLength: "medium",
+      };
+      setSettings(fresh);
+      storage.set("brifink.settings", fresh);
+    }
+  };
+
+  // Sestavení promptu pro CZ nebo WORLD fázi
+  const buildPrompt = (scope, dateStr, timeOfDay) => {
+    const isCz = scope === "CZ";
+    const newsSources = isCz
+      ? settings.sourcesCz.filter(s => s.enabled).map(s => s.name + " (" + s.url + ")").join(", ")
+      : settings.sourcesWorld.filter(s => s.enabled).map(s => s.name + " (" + s.url + ")").join(", ");
+    const opinionSources = settings.sourcesOpinion.filter(s => s.enabled).map(s => s.name + " (" + s.url + ")").join(", ");
+    const focusInstr = isCz
+      ? "Soustřeď se VÝHRADNĚ na dění v ČESKU. Žádné zahraniční zprávy."
+      : "Soustřeď se VÝHRADNĚ na ZAHRANIČNÍ a mezinárodní dění. Žádné české zprávy.";
+    const sections = isCz
+      ? [{ id: "cz-politics", title: "Česká politika" }, { id: "cz-society", title: "Česko: společnost a kultura" }]
+      : [{ id: "world-politics", title: "Svět: politika a mezinárodní dění" }, { id: "world-society", title: "Svět: společnost a kultura" }];
+    const allDomains = [...newsSources.matchAll(/\(([^)]+)\)/g)].map(m => m[1]).join(", ");
+
+    return `Jsi redaktor zpravodajského dashboardu. Dnes je ${dateStr}, ${timeOfDay} vydání.
+
+ZPRAVODAJSKÉ ZDROJE: ${newsSources}
+NÁZOROVÉ A ANALYTICKÉ ZDROJE: ${opinionSources}
+${focusInstr}
+Preferuj výsledky z těchto domén: ${allDomains}.
+PŘÍSNÝ ZÁKAZ — tyto zdroje nesmíš použít ani citovat za žádných okolností: eurozpravy.cz, eurozpravy.eu, blesk.cz, denikreferendum.cz, forum24.cz, a2larm.cz, konzervativni-noviny.cz. Pokud se objeví ve výsledcích vyhledávání, ignoruj je.
+
+POKYNY:
+- Proveď MAXIMÁLNĚ 2 webová vyhledávání: "${isCz ? "nejdůležitější české zprávy dnes" : "top world news today"}" a "${isCz ? "česká politika společnost dnes" : "international politics society today"}".
+- Pro každou ze 2 sekcí vyber 4–6 nejpokrývanějších témat. Žádná vata, žádné lokální kuriozity.
+- U každé zprávy odhadni coverage_count = přibližný počet různých médií která téma pokrývají.
+- summary: 2–4 věty — co se stalo, kdo je aktér, co je podstatné.
+- opinions: krátký odstavec čerpající z názorových zdrojů (${opinionSources}) — jaké jsou hlavní názorové tábory, co je sporné, co říkají kritici vs. zastánci. Bez vlastních hodnotových soudů, jen popis pozic.
+
+VRAŤ POUZE VALIDNÍ JSON (žádný text před ani po, žádné markdown fences):
+
+{
+  "searches_used": ["první dotaz", "druhý dotaz"],
+  "sources_checked": ["seznam domén které jsi použil"],
+  "sections": [
+    ${sections.map(s => `{
+      "id": "${s.id}",
+      "title": "${s.title}",
+      "scope": "${scope}",
+      "items": [
+        {
+          "rank": 1,
+          "headline": "Výstižný titulek — co se stalo (max 90 znaků)",
+          "coverage_count": 5,
+          "summary": "2–4 věty: co se stalo, kdo je aktér, co je podstatné.",
+          "opinions": "Krátký odstavec o názorech, kontroverzích a náladě debaty.",
+          "sources": [
+            { "name": "Název média", "url": "https://url-konkrétního-článku" },
+            { "name": "Další médium", "url": "https://url" }
+          ]
+        }
+      ]
+    }`).join(",\n    ")}
+  ]
+}
+
+PRAVIDLA: Pouze JSON. Každá sekce 4–6 položek seřazených od nejvyššího coverage_count. Rank od 1 v každé sekci. URL MUSÍ být přesné přímé URL konkrétního článku z výsledků vyhledávání — ne homepage, ne doména, ne vymyšlená URL. Pokud nemáš přesné URL článku, raději zdroj vynech. Min 2 zdroje na položku. Piš česky, neutrálně. Klíče v dvojitých uvozovkách, escapuj \\" uvnitř hodnot, žádné trailing commas.`;
+  };
+
+  // Prompt pro WORLD fázi — zahrnuje světové zprávy + AI sekci
+  const buildPromptWorld = (dateStr, timeOfDay) => {
+    const worldSources = settings.sourcesWorld.filter(s => s.enabled).map(s => s.name + " (" + s.url + ")").join(", ");
+    const aiSources = settings.sourcesAi.filter(s => s.enabled).map(s => s.name + " (" + s.url + ")").join(", ");
+    const opinionSources = settings.sourcesOpinion.filter(s => s.enabled).map(s => s.name + " (" + s.url + ")").join(", ");
+    const allDomains = [...(worldSources + ", " + aiSources).matchAll(/\(([^)]+)\)/g)].map(m => m[1]).join(", ");
+
+    return `Jsi redaktor zpravodajského dashboardu. Dnes je ${dateStr}, ${timeOfDay} vydání.
+
+ZPRAVODAJSKÉ ZDROJE (svět): ${worldSources}
+AI & TECH ZDROJE: ${aiSources}
+NÁZOROVÉ ZDROJE: ${opinionSources}
+Preferuj výsledky z těchto domén: ${allDomains}.
+PŘÍSNÝ ZÁKAZ — tyto zdroje nesmíš použít ani citovat za žádných okolností: eurozpravy.cz, eurozpravy.eu, blesk.cz, denikreferendum.cz, forum24.cz, a2larm.cz, konzervativni-noviny.cz. Pokud se objeví ve výsledcích vyhledávání, ignoruj je.
+
+POKYNY:
+- Proveď MAXIMÁLNĚ 2 webová vyhledávání: "top world news today" a "artificial intelligence AI news today".
+- První hledání použij pro světové zprávy (politika + společnost), druhé pro AI sekci.
+- ŘAĎ PODLE POKRYTÍ: téma pokrývané více médii = důležitější.
+- Pro světové sekce (politika, společnost) vyber 4–5 témat každou. Pro AI sekci 4–5 témat.
+- U každé zprávy odhadni coverage_count = přibližný počet různých médií která téma pokrývají.
+- summary: 2–4 věty — co se stalo, kdo je aktér, co je podstatné.
+- opinions: krátký odstavec — hlavní názorové tábory, co je sporné, reakce odborníků. Bez vlastních hodnotových soudů.
+
+VRAŤ POUZE VALIDNÍ JSON (žádný text před ani po, žádné markdown fences):
+
+{
+  "searches_used": ["první dotaz", "druhý dotaz"],
+  "sources_checked": ["seznam domén které jsi použil"],
+  "sections": [
+    {
+      "id": "world-politics",
+      "title": "Svět: politika a mezinárodní dění",
+      "scope": "WORLD",
+      "items": [
+        {
+          "rank": 1,
+          "headline": "Výstižný titulek (max 90 znaků)",
+          "coverage_count": 5,
+          "summary": "2–4 věty: co se stalo, kdo je aktér, co je podstatné.",
+          "opinions": "Krátký odstavec o názorech a kontroverzích.",
+          "sources": [
+            { "name": "Název média", "url": "https://url-článku" },
+            { "name": "Další médium", "url": "https://url" }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "world-society",
+      "title": "Svět: společnost a kultura",
+      "scope": "WORLD",
+      "items": []
+    },
+    {
+      "id": "ai",
+      "title": "Umělá inteligence",
+      "scope": "WORLD",
+      "items": []
+    }
+  ]
+}
+
+PRAVIDLA: Pouze JSON. Sekce MUSÍ být přesně 3 v tomto pořadí: world-politics, world-society, ai. Každá sekce 4–5 položek. Rank od 1 v každé sekci. URL MUSÍ být přesné přímé URL konkrétního článku z výsledků vyhledávání — ne homepage, ne doména, ne vymyšlená URL. Pokud nemáš přesné URL článku, raději zdroj vynech. Min 2 zdroje na položku. Piš česky (tech názvy ponech anglicky). Klíče v dvojitých uvozovkách, escapuj \\" uvnitř hodnot, žádné trailing commas.`;
+  };
+
+  // Robustní parser - sdílený mezi oběma fázemi
+  const parseJsonResponse = (fullText) => {
+    // Odstraň vše co není JSON (markdown fences, úvodní text, cite tagy)
+    const cleaned = fullText
+      .replace(/```json\s*/gi, "")
+      .replace(/```\s*/g, "")
+      .replace(/\[\d+(?:[,-]\d+)*\]/g, "")
+      .trim();
+
+    const firstBrace = cleaned.indexOf("{");
+    const lastBrace = cleaned.lastIndexOf("}");
+    if (firstBrace === -1 || lastBrace === -1) {
+      console.error("[Brífink] Žádný JSON v odpovědi. Celý text:", cleaned.slice(0, 2000));
+      throw new Error("Model neodpověděl JSONem. Zkus znovu — při druhém pokusu to většinou funguje.");
+    }
+    let jsonStr = cleaned.slice(firstBrace, lastBrace + 1);
+
+    const tryParse = (s) => { try { return JSON.parse(s); } catch (e) { return { __err: e.message }; } };
+
+    // Sanitizace: oprav neescapované uvozovky uvnitř JSON string hodnot
+    const sanitizeJson = (s) => {
+      const CLOSE_CHARS = new Set([",", "}", "]", ":"]);
+      let out = "";
+      let inStr = false;
+      let esc = false;
+      for (let i = 0; i < s.length; i++) {
+        const c = s[i];
+        if (esc) { out += c; esc = false; continue; }
+        if (c === "\\") { out += c; esc = true; continue; }
+        if (c === '"') {
+          if (!inStr) {
+            inStr = true; out += c;
+          } else {
+            const rest = s.slice(i + 1).trimStart();
+            const next = rest[0];
+            if (!next || CLOSE_CHARS.has(next)) {
+              inStr = false; out += c;
+            } else {
+              out += '\\"';
+            }
+          }
+          continue;
+        }
+        out += c;
+      }
+      return out;
+    };
+
+    let parsed = tryParse(jsonStr);
+    if (parsed.__err) {
+      let fixed = jsonStr
+        .replace(/[\u201C\u201D\u201E]/g, '\\"')
+        .replace(/[\u2018\u2019\u201A]/g, "'")
+        .replace(/,(\s*[}\]])/g, "$1");
+      parsed = tryParse(fixed);
+
+      // Zkus sanitizaci neescapovaných uvozovek
+      if (parsed.__err) {
+        const sanitized = sanitizeJson(fixed);
+        parsed = tryParse(sanitized);
+      }
+
+      if (parsed.__err) {
+        const tryTruncateAt = (str, marker) => {
+          const idx = str.lastIndexOf(marker);
+          if (idx === -1) return null;
+          const arrStart = str.indexOf("[", idx);
+          if (arrStart === -1) return null;
+          const head = str.slice(0, arrStart + 1);
+          const tail = str.slice(arrStart + 1);
+          const objectEnds = [];
+          let depth = 0, inStr = false, esc = false;
+          for (let i = 0; i < tail.length; i++) {
+            const c = tail[i];
+            if (esc) { esc = false; continue; }
+            if (c === "\\") { esc = true; continue; }
+            if (c === '"') { inStr = !inStr; continue; }
+            if (inStr) continue;
+            if (c === "{") depth++;
+            else if (c === "}") { depth--; if (depth === 0) objectEnds.push(i); }
+          }
+          for (let n = objectEnds.length; n >= 1; n--) {
+            const truncated = head + tail.slice(0, objectEnds[n - 1] + 1) + "]}]}";
+            const r = tryParse(truncated);
+            if (!r.__err) return r;
+          }
+          return null;
+        };
+        const recovered = tryTruncateAt(fixed, '"items"');
+        if (recovered) parsed = recovered;
+      }
+
+      if (parsed.__err) {
+        console.error("JSON parse error. Raw response:", jsonStr.slice(0, 1500));
+        throw new Error("Model vrátil JSON, který nejde přečíst (" + parsed.__err + ").");
+      }
+    }
+
+    if (!parsed.sections || !Array.isArray(parsed.sections)) {
+      console.error("Parsed object (no sections):", JSON.stringify(parsed).slice(0, 2000));
+      // Zkus najít sekce pod jiným klíčem (model občas zabalí výstup navíc)
+      const alt = parsed.data || parsed.result || parsed.output;
+      if (alt && alt.sections) { parsed = alt; }
+      else { throw new Error("V odpovědi nejsou sekce. Zkus znovu — model občas potřebuje druhý pokus."); }
+    }
+    parsed.sections = parsed.sections.filter(s => s && Array.isArray(s.items) && s.items.length > 0);
+
+    // Tvrdý filtr — odstraň zakázané zdroje z každé položky
+    parsed.sections.forEach(section => {
+      section.items = section.items.map(item => ({
+        ...item,
+        sources: (item.sources || []).filter(src => {
+          const url = (src.url || "").toLowerCase();
+          return !BANNED_DOMAINS.some(domain => url.includes(domain));
+        })
+      }));
+    });
+    return parsed;
+  };
+
+  // Jedna fáze fetche - zavolá API a vrátí parsovaný JSON
+  const fetchPhase = async (scope, dateStr, timeOfDay) => {
+    const prompt = scope === "WORLD" ? buildPromptWorld(dateStr, timeOfDay) : buildPrompt(scope, dateStr, timeOfDay);
+
+    const response = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-api-key": apiKey,
+        "anthropic-version": "2023-06-01",
+        "anthropic-dangerous-direct-browser-access": "true",
+      },
+      body: JSON.stringify({
+        model: "claude-sonnet-4-20250514",
+        max_tokens: 8000,
+        messages: [{ role: "user", content: prompt }],
+        tools: [{ type: "web_search_20250305", name: "web_search", max_uses: 2 }],
+      }),
+    });
+
+    if (!response.ok) {
+      const errText = await response.text();
+      if (response.status === 401) throw new Error("Neplatný API klíč. Otevři Nastavení a klíč zkontroluj.");
+      if (response.status === 429) {
+        const isCreditError = errText.includes("credit balance") || errText.includes("insufficient");
+        if (isCreditError) throw new Error("Došel kredit na Anthropic účtu. Doplň ho na console.anthropic.com.");
+        throw new Error("Limit požadavků za minutu (RATE LIMIT). Počkej cca 60 vteřin a klikni Aktualizovat.");
+      }
+      if (response.status === 529 || response.status === 503) throw new Error("Anthropic API je momentálně přetížené. Zkus to za chvíli.");
+      throw new Error("API chyba " + response.status + ": " + errText.slice(0, 300));
+    }
+
+    const result = await response.json();
+    const fullText = result.content.filter(b => b.type === "text").map(b => b.text).join("\n");
+    // Odstraň cite tagy - používáme funkci místo regexu s < > aby Babel nepletl s JSX
+    const removeCiteTags = (s) => {
+      let out = s;
+      // Odstraň <cite ...> a </cite> pomocí split/join
+      while (out.includes("<cite")) {
+        const start = out.indexOf("<cite");
+        const end = out.indexOf(">", start);
+        if (end === -1) break;
+        out = out.slice(0, start) + out.slice(end + 1);
+      }
+      out = out.split("").join("");
+      // Odstraň [1,2,3] citační reference
+      out = out.replace(/\[\d+(?:[,-]\d+)*\]/g, "");
+      return out;
+    };
+    const cleaned_text = removeCiteTags(fullText);
+    console.log("[Brífink] Surová odpověď modelu (" + scope + "):", cleaned_text.slice(0, 3000));
+    return parseJsonResponse(cleaned_text);
+  };
+
+  // Pomocný sleep s aktualizací UI (odpočet)
+  const sleepWithCountdown = async (seconds, baseMessage) => {
+    for (let i = seconds; i > 0; i--) {
+      setLoadingStage(baseMessage + " (" + i + "s)");
+      await new Promise(r => setTimeout(r, 1000));
+    }
+  };
+
+  const fetchNews = async () => {
+    if (!apiKey) { setError("Chybí API klíč."); return; }
+    setLoading(true);
+    setError(null);
+    setLoadingStage("Připravuji zdroje…");
+
+    if (settings.sourcesCz.filter(s => s.enabled).length === 0 && settings.sourcesWorld.filter(s => s.enabled).length === 0) {
+      setError("Není vybraný žádný zdroj. Otevři nastavení a nějaký zapni.");
+      setLoading(false);
+      return;
+    }
+
+    const now = new Date();
+    const dateStr = now.toLocaleDateString("cs-CZ", { day: "numeric", month: "long", year: "numeric" });
+    const timeOfDay = now.getHours() < 14 ? "ranní" : "odpolední";
+
+    try {
+      // FÁZE 1: ČR
+      setLoadingStage("Načítám české zprávy…");
+      const czData = await fetchPhase("CZ", dateStr, timeOfDay);
+
+      // PAUZA
+      await sleepWithCountdown(35, "České zprávy hotové. Čekám na rate limit…");
+
+      // FÁZE 2: SVĚT + AI
+      setLoadingStage("Načítám zahraniční zprávy a AI dění…");
+      const worldData = await fetchPhase("WORLD", dateStr, timeOfDay);
+
+      // SPOJENÍ
+      setLoadingStage("Skládám přehled…");
+      const merged = {
+        sections: [...czData.sections, ...worldData.sections],
+        searches_used: [...(czData.searches_used || []), ...(worldData.searches_used || [])],
+        sources_checked: [...new Set([...(czData.sources_checked || []), ...(worldData.sources_checked || [])])],
+      };
+
+      if (merged.sections.length === 0) {
+        throw new Error("Žádná sekce nemá zprávy. Zkus znovu.");
+      }
+
+      const timestamp = new Date().toISOString();
+      setData(merged);
+      setLastUpdated(timestamp);
+      storage.set("brifink.latestDigest", { data: merged, timestamp });
+    } catch (err) {
+      console.error(err);
+      setError(err.message || "Něco se pokazilo při načítání zpráv.");
+    } finally {
+      setLoading(false);
+      setLoadingStage("");
+    }
+  };
+
+  const formatLastUpdated = (iso) => iso ? new Date(iso).toLocaleString("cs-CZ", { day: "numeric", month: "long", hour: "2-digit", minute: "2-digit" }) : null;
+
+  const getCategoryColor = (cat) => {
+    for (const key of Object.keys(CATEGORY_COLORS)) {
+      if (cat && cat.toLowerCase().includes(key.toLowerCase())) return CATEGORY_COLORS[key];
+    }
+    return "var(--ink-muted)";
+  };
+
+  // === OBRAZOVKA API KLÍČ ===
+  if (!apiKey) {
+    return (
+      <div className="min-h-screen">
+        <div className="grain"></div>
+        <div className="max-w-xl mx-auto px-6 py-16">
+          <h1 className="display-font font-black text-center leading-none" style={{ fontSize: "clamp(3rem, 8vw, 5rem)" }}>Brífink</h1>
+          <div className="text-center italic mt-2 text-sm" style={{ color: "var(--ink-muted)" }}>— denní přehled toho, co byste neměli minout —</div>
+          <div className="rule-double mt-6 mb-10"></div>
+
+          <h2 className="display-font text-2xl font-bold mb-3">Než začneme</h2>
+          <p className="leading-relaxed mb-4" style={{ color: "var(--ink-muted)" }}>
+            Vlož svůj Anthropic API klíč. Uloží se <strong>pouze do tohoto prohlížeče</strong> (localStorage), nikam se neodesílá kromě volání samotného Anthropic API. Získáš ho na{" "}
+            <a href="https://console.anthropic.com/settings/keys" target="_blank" rel="noopener noreferrer" style={{ color: "var(--accent)" }} className="underline">console.anthropic.com</a>.
+          </p>
+
+          <div className="p-4 mb-6 text-sm leading-relaxed" style={{ borderLeft: "4px solid var(--accent)", background: "var(--paper-dark)", color: "var(--ink-muted)" }}>
+            <strong>Bezpečnostní upozornění:</strong> Tento HTML soubor volá Anthropic API přímo z prohlížeče. Klíč je uložený v paměti prohlížeče a <strong>neposílej tento soubor nikomu</strong> — kdokoli s přístupem na tvé zařízení by ho mohl přečíst z localStorage. Kdyby se klíč někam dostal, v konzoli ho hned zneplatni.
+          </div>
+
+          <label className="mono-font text-[11px] uppercase tracking-[0.2em] block mb-2" style={{ color: "var(--accent)" }}>API klíč</label>
+          <div className="flex gap-2">
+            <input
+              type="password"
+              value={apiKeyInput}
+              onChange={(e) => setApiKeyInput(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && saveApiKey()}
+              placeholder="sk-ant-api03-..."
+              className="flex-1 px-3 py-2 mono-font text-sm"
+              style={{ border: "1px solid var(--ink)", background: "var(--paper)", color: "var(--ink)" }}
+            />
+            <button onClick={saveApiKey} className="btn-primary" style={{ padding: "0.5rem 1.5rem", letterSpacing: "0.1em" }}>Uložit</button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // === HLAVNÍ OBRAZOVKA ===
+  return (
+    <div className="min-h-screen">
+      <div className="grain"></div>
+
+      <header style={{ borderBottom: "2px solid var(--ink)" }}>
+        <div className="max-w-7xl mx-auto px-6 lg:px-10 pt-6 pb-4">
+          <div className="flex items-start justify-between gap-4 mb-4">
+            <div className="mono-font text-[10px] uppercase tracking-[0.25em]" style={{ color: "var(--ink-muted)" }}>
+              Ročník I · Vydání {new Date().toLocaleDateString("cs-CZ")} · {new Date().getHours() < 14 ? "Ranní" : "Odpolední"} výtisk
+            </div>
+            <div className="flex items-center gap-2 flex-wrap justify-end">
+              <button onClick={fetchNews} disabled={loading} className="btn-outline">
+                <IconRefresh size={12} spin={loading} />
+                {loading ? "Načítám" : "Aktualizovat"}
+              </button>
+              <button onClick={() => setShowSettings(true)} className="btn-outline">
+                <IconSettings size={12} /> Nastavení
+              </button>
+            </div>
+          </div>
+
+          <div className="rule mb-3"></div>
+          <h1 className="display-font font-black text-center leading-none tracking-tight" style={{ fontSize: "clamp(2.5rem, 6vw, 4.5rem)" }}>Brífink</h1>
+          <div className="text-center italic mt-2 text-sm" style={{ color: "var(--ink-muted)" }}>— denní přehled toho, co byste neměli minout —</div>
+          <div className="rule-double mt-4"></div>
+
+          {lastUpdated && (
+            <div className="mono-font text-[10px] uppercase tracking-wider mt-3 flex items-center gap-1.5" style={{ color: "var(--ink-soft)" }}>
+              <IconClock size={10} /> Naposledy aktualizováno {formatLastUpdated(lastUpdated)}
+            </div>
+          )}
+        </div>
+      </header>
+
+      <main className="max-w-7xl mx-auto px-6 lg:px-10 py-10">
+        {!data && !loading && !error && (
+          <div className="text-center py-24 fade-in">
+            <div className="display-font italic text-3xl mb-4" style={{ color: "var(--ink-muted)" }}>„Nová zpráva je jako nová hvězda —</div>
+            <div className="display-font italic text-3xl mb-8" style={{ color: "var(--ink-muted)" }}>stačí se podívat."</div>
+            <button onClick={fetchNews} className="btn-primary">Načíst dnešní přehled →</button>
+          </div>
+        )}
+
+        {loading && (
+          <div className="py-24 text-center fade-in">
+            <IconLoader size={32} />
+            <div className="display-font text-2xl italic mb-2 mt-6">{loadingStage}</div>
+            <div className="mono-font text-xs uppercase tracking-wider pulse" style={{ color: "var(--ink-muted)" }}>
+              Načítání trvá zhruba 2 minuty — dvě fáze (ČR, svět+AI) s pauzou kvůli rate limitům.
+            </div>
+          </div>
+        )}
+
+        {error && !loading && (
+          <div className="p-6 my-6 flex gap-4 items-start fade-in" style={{ borderLeft: "4px solid var(--accent)", background: "var(--paper-dark)" }}>
+            <span style={{ color: "var(--accent)", flexShrink: 0, marginTop: "2px" }}><IconAlert size={20} /></span>
+            <div>
+              <div className="display-font text-lg mb-1">Něco se nepovedlo</div>
+              <div className="text-sm" style={{ color: "var(--ink-muted)" }}>{error}</div>
+              <button onClick={fetchNews} className="mono-font text-xs uppercase tracking-wider mt-3 underline" style={{ background: "transparent", border: "none", cursor: "pointer", color: "var(--ink)" }}>Zkusit znovu</button>
+            </div>
+          </div>
+        )}
+
+        {data && !loading && (
+          <>
+            {/* Rychlá navigace mezi sekcemi */}
+            <nav className="mb-10 fade-in" style={{ borderBottom: "1px solid var(--line)", paddingBottom: "1rem" }}>
+              <div className="flex flex-wrap gap-x-6 gap-y-2 items-center">
+                <span className="mono-font text-[10px] uppercase tracking-[0.25em]" style={{ color: "var(--ink-soft)" }}>Sekce:</span>
+                {data.sections?.map((section) => (
+                  <a key={section.id} href={"#" + section.id}
+                    className="mono-font text-[11px] uppercase tracking-wider"
+                    style={{ color: "var(--ink)", textDecoration: "underline", textDecorationStyle: "dotted", textUnderlineOffset: "3px" }}>
+                    {section.title} <span style={{ color: "var(--ink-soft)" }}>({section.items?.length || 0})</span>
+                  </a>
+                ))}
+              </div>
+            </nav>
+
+            {/* Sekce */}
+            {data.sections?.map((section, sIdx) => (
+              <section key={section.id} id={section.id} className="mb-16 fade-in" style={{ animationDelay: (sIdx * 0.08) + "s", scrollMarginTop: "2rem" }}>
+                <div className="mb-6">
+                  <div className="mono-font text-[10px] uppercase tracking-[0.25em] mb-2" style={{ color: "var(--accent)" }}>
+                    § Sekce {sIdx + 1} / {data.sections.length} · {section.scope === "CZ" ? "Česko" : "Svět"}
+                  </div>
+                  <div className="flex items-baseline justify-between gap-4 flex-wrap">
+                    <h2 className="display-font text-3xl md:text-4xl font-bold leading-tight">{section.title}</h2>
+                    <div className="mono-font text-[10px] uppercase tracking-wider" style={{ color: "var(--ink-muted)" }}>
+                      {section.items?.length || 0} {section.items?.length === 1 ? "zpráva" : (section.items?.length >= 2 && section.items?.length <= 4 ? "zprávy" : "zpráv")}
+                    </div>
+                  </div>
+                  <div className="rule-double mt-3"></div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  {section.items?.map((item, idx) => {
+                    const cov = item.coverage_count || 0;
+                    const covColor = cov >= 5 ? "#4a6b4a" : cov >= 3 ? "#8b6a2a" : "var(--ink-muted)";
+                    const covLabel = cov >= 5 ? "Velké pokrytí" : cov >= 3 ? "Střední pokrytí" : "Omezené pokrytí";
+                    const covDots = Math.min(cov, 8);
+                    return (
+                    <article key={idx} className="card-hover p-6 fade-in" style={{ background: "var(--paper-dark)", border: "1px solid var(--line)", animationDelay: (idx * 0.04) + "s" }}>
+                      {/* Rank + pokrytí */}
+                      <div className="flex items-start justify-between gap-2 mb-3">
+                        <span className="display-font font-black text-4xl leading-none" style={{ color: "var(--accent)" }}>{String(item.rank).padStart(2, "0")}</span>
+                        {cov > 0 && (
+                          <div className="flex flex-col items-end gap-1">
+                            <div className="flex gap-0.5">
+                              {Array.from({length: 8}).map((_, i) => (
+                                <div key={i} style={{ width: 6, height: 6, borderRadius: "50%", background: i < covDots ? covColor : "var(--line)" }} />
+                              ))}
+                            </div>
+                            <div className="mono-font text-[9px] uppercase tracking-wider" style={{ color: covColor }}>{covLabel} · {cov} médií</div>
+                          </div>
+                        )}
+                      </div>
+
+                      <h3 className="display-font font-bold text-xl leading-snug mb-3">{item.headline}</h3>
+
+                      {item.summary && (
+                        <p style={{ fontSize: "15px", lineHeight: 1.6, marginBottom: "1rem" }}>{item.summary}</p>
+                      )}
+
+                      {item.opinions && (
+                        <div className="mb-4">
+                          <div className="mono-font text-[9px] uppercase tracking-[0.2em] mb-1.5" style={{ color: "var(--ink-soft)" }}>Názory & debata</div>
+                          <p className="italic text-sm leading-relaxed" style={{ color: "var(--ink-muted)", borderLeft: "2px solid var(--line)", paddingLeft: "0.75rem" }}>{item.opinions}</p>
+                        </div>
+                      )}
+
+                      {item.sources && item.sources.length > 0 && (
+                        <div className="mt-4 pt-4" style={{ borderTop: "1px solid var(--line-soft)" }}>
+                          <div className="mono-font text-[9px] uppercase tracking-[0.2em] mb-2" style={{ color: "var(--ink-soft)" }}>Zdroje</div>
+                          <div className="flex flex-wrap gap-x-3 gap-y-1.5">
+                            {item.sources.map((src, si) => (
+                              <a key={si} href={src.url} target="_blank" rel="noopener noreferrer"
+                                className="inline-flex items-center gap-1 text-xs"
+                                style={{ color: "var(--ink)", textDecoration: "underline", textDecorationStyle: "dotted", textUnderlineOffset: "2px" }}>
+                                {src.name} <IconExt size={10} />
+                              </a>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </article>
+                    );
+                  })}
+                </div>
+              </section>
+            ))}
+
+            <footer className="mt-16 pt-8" style={{ borderTop: "1px solid var(--line)" }}>
+              {/* Seznam zdrojů a dotazů */}
+              {(data.sources_checked?.length > 0 || data.searches_used?.length > 0) && (
+                <div className="mb-8 p-5" style={{ background: "var(--paper-dark)", border: "1px solid var(--line-soft)" }}>
+                  {data.searches_used?.length > 0 && (
+                    <div className="mb-4">
+                      <div className="mono-font text-[9px] uppercase tracking-[0.2em] mb-2" style={{ color: "var(--ink-soft)" }}>Vyhledávací dotazy použité při sestavování přehledu</div>
+                      <div className="flex flex-wrap gap-2">
+                        {data.searches_used.map((q, i) => (
+                          <span key={i} className="mono-font text-[10px] px-2 py-0.5" style={{ background: "var(--line-soft)", color: "var(--ink-muted)" }}>„{q}"</span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  {data.sources_checked?.length > 0 && (
+                    <div>
+                      <div className="mono-font text-[9px] uppercase tracking-[0.2em] mb-2" style={{ color: "var(--ink-soft)" }}>Prohledané zdroje</div>
+                      <div className="flex flex-wrap gap-x-3 gap-y-1">
+                        {data.sources_checked.map((src, i) => (
+                          <span key={i} className="mono-font text-[10px]" style={{ color: "var(--ink-muted)" }}>{src}</span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+              <div className="text-center">
+                <div className="display-font italic text-lg mb-2" style={{ color: "var(--ink-muted)" }}>— konec vydání —</div>
+                <div className="mono-font text-[10px] uppercase tracking-[0.25em]" style={{ color: "var(--ink-soft)" }}>Sestaveno umělou inteligencí · {new Date().toLocaleDateString("cs-CZ")}</div>
+              </div>
+            </footer>
+          </>
+        )}
+      </main>
+
+      {showSettings && (
+        <div className="fixed inset-0 z-50 flex items-start justify-center p-4 overflow-y-auto"
+          style={{ background: "rgba(26, 22, 18, 0.6)" }}
+          onClick={() => setShowSettings(false)}>
+          <div className="max-w-2xl w-full my-8 p-8 fade-in" style={{ background: "var(--paper)", border: "2px solid var(--ink)" }} onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="display-font text-3xl font-bold">Nastavení</h2>
+              <button onClick={() => setShowSettings(false)} style={{ background: "transparent", border: "none", cursor: "pointer", padding: "4px" }}><IconX size={20} /></button>
+            </div>
+            <div className="rule mb-6"></div>
+
+            {[
+              { title: "České zdroje", key: "sourcesCz", items: settings.sourcesCz },
+              { title: "Zahraniční zdroje", key: "sourcesWorld", items: settings.sourcesWorld },
+              { title: "Názory & komentáře", key: "sourcesOpinion", items: settings.sourcesOpinion },
+              { title: "AI & technologie", key: "sourcesAi", items: settings.sourcesAi },
+            ].map(section => (
+              <div className="mb-6" key={section.key}>
+                <h3 className="mono-font text-[11px] uppercase tracking-[0.25em] mb-3" style={{ color: "var(--accent)" }}>{section.title}</h3>
+                <div className="grid grid-cols-2 gap-2">
+                  {section.items.map((item, i) => (
+                    <button key={i}
+                      onClick={() => {
+                        const newItems = [...section.items];
+                        newItems[i] = { ...item, enabled: !item.enabled };
+                        saveSettings({ ...settings, [section.key]: newItems });
+                      }}
+                      className="flex items-center gap-2 p-2 text-left text-sm"
+                      style={{
+                        border: "1px solid " + (item.enabled ? "var(--ink)" : "var(--line-soft)"),
+                        color: item.enabled ? "var(--ink)" : "var(--ink-soft)",
+                        background: "transparent", cursor: "pointer"
+                      }}>
+                      <div style={{ width: 16, height: 16, border: "1px solid var(--ink)", display: "flex", alignItems: "center", justifyContent: "center", background: item.enabled ? "var(--ink)" : "transparent", flexShrink: 0 }}>
+                        {item.enabled && <span style={{ color: "var(--paper)", display:"flex" }}><IconCheck size={10} /></span>}
+                      </div>
+                      {item.name || item.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            ))}
+
+
+
+            <div className="rule mb-4"></div>
+
+            <div className="mb-4">
+              <h3 className="mono-font text-[11px] uppercase tracking-[0.25em] mb-3" style={{ color: "var(--accent)" }}>API klíč</h3>
+              <div className="flex items-center gap-2 mono-font text-xs" style={{ color: "var(--ink-muted)" }}>
+                <IconKey size={12} />
+                <span>Uložen v prohlížeči</span>
+                <button onClick={clearApiKey} style={{ background: "transparent", border: "none", cursor: "pointer", color: "var(--accent)", textDecoration: "underline", marginLeft: "auto" }}>Smazat klíč</button>
+              </div>
+            </div>
+
+            <div className="rule mb-4"></div>
+
+            <div className="mb-4">
+              <h3 className="mono-font text-[11px] uppercase tracking-[0.25em] mb-3" style={{ color: "var(--accent)" }}>Obnovit výchozí nastavení</h3>
+              <button onClick={resetSettings} className="btn-outline w-full justify-center" style={{ borderColor: "var(--accent)", color: "var(--accent)" }}>
+                Resetovat všechny zdroje na výchozí
+              </button>
+              <div className="mono-font text-[9px] mt-2" style={{ color: "var(--ink-soft)" }}>Odstraní staré/nežádoucí zdroje a obnoví aktuální výchozí seznam. API klíč zůstane.</div>
+            </div>
+
+            <div className="mono-font text-[10px] uppercase tracking-wider text-center" style={{ color: "var(--ink-soft)" }}>Nastavení se ukládá automaticky</div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+const root = ReactDOM.createRoot(document.getElementById("root"));
+root.render(<App />);
+</script>
+</body>
+</html>
